@@ -2,22 +2,22 @@ package migratigo
 
 import (
 	"database/sql"
+	"embed"
 	"fmt"
+	"io/fs"
 )
 
 type Connector struct {
-	migrated   bool
-	connection *sql.DB
+	migrated     bool
+	connection   *sql.DB
+	migrationsFS embed.FS
 }
 
-func New(host, port, username, password, name string) (*Connector, error) {
-	connection, err := Connect(host, port, username, password, name)
-	if err != nil {
-		return nil, err
-	}
+func New(db *sql.DB, migrations embed.FS) (*Connector, error) {
 	return &Connector{
-		migrated:   false,
-		connection: connection,
+		migrated:     false,
+		connection:   db,
+		migrationsFS: migrations,
 	}, nil
 }
 
@@ -38,6 +38,7 @@ func Connect(host, port, username, password, name string) (*sql.DB, error) {
 	return connection, nil
 }
 
+// ConnectFromConnectionString connects to sql db from connection string
 func ConnectFromConnectionString(connString string) (*sql.DB, error) {
 	connection, err := sql.Open("postgres", connString)
 	if err != nil {
@@ -53,16 +54,30 @@ func ConnectFromConnectionString(connString string) (*sql.DB, error) {
 }
 
 func (c *Connector) RunMigrations() error {
-	return nil
+	files, err := fs.ReadDir(c.migrationsFS, "sql")
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		if !file.IsDir() {
+			fmt.Println(file.Name())
+		}
+	}
 }
 
 func (c *Connector) Close() error {
 	return c.connection.Close()
 }
 
-func (c *Connector) Connection() *sql.DB {
-
-	return c.connection
+func (c *Connector) Connection() (*sql.DB, error) {
+	if !c.migrated {
+		err := c.RunMigrations()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return c.connection, nil
 }
 
 func createConnectionString(host, port, username, password, name string) string {
