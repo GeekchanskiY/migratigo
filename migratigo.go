@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"path/filepath"
 	"regexp"
 
 	_ "github.com/lib/pq"
@@ -15,16 +16,28 @@ const (
 )
 
 type Connector struct {
-	migrated     bool
-	connection   *sql.DB
-	migrationsFS embed.FS
+	migrated      bool
+	connection    *sql.DB
+	migrationsFS  embed.FS
+	migrationsDir string
+	Migrations    []Migration
 }
 
-func New(db *sql.DB, migrations embed.FS) (*Connector, error) {
+type Migration struct {
+	Num      int
+	Title    string
+	Up       bool
+	Migrated bool
+	Content  string
+}
+
+// New creates new migratigo instance
+func New(db *sql.DB, migrations embed.FS, migrationsDir string) (*Connector, error) {
 	return &Connector{
-		migrated:     false,
-		connection:   db,
-		migrationsFS: migrations,
+		migrated:      false,
+		connection:    db,
+		migrationsFS:  migrations,
+		migrationsDir: migrationsDir,
 	}, nil
 }
 
@@ -43,18 +56,25 @@ func Connect(connString string) (*sql.DB, error) {
 	return connection, nil
 }
 
+// RunMigrations runs all migrations from embedded dir
 func (c *Connector) RunMigrations() error {
-	files, err := fs.ReadDir(c.migrationsFS, "test_migrations")
+	files, err := fs.ReadDir(c.migrationsFS, c.migrationsDir)
 	if err != nil {
 		return err
 	}
 
+	// name validation
 	for _, file := range files {
 		if !file.IsDir() {
 			err = c.validateMigrationName(file.Name())
 			if err != nil {
 				return err
 			}
+			contents, err := fs.ReadFile(c.migrationsFS, filepath.Join(c.migrationsDir, file.Name()))
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(contents))
 		}
 	}
 
@@ -72,6 +92,7 @@ func (c *Connector) validateMigrationName(name string) error {
 	return nil
 }
 
+// Close closes sql connection
 func (c *Connector) Close() error {
 	return c.connection.Close()
 }

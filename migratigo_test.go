@@ -13,6 +13,11 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
+const (
+	testMigrationsDir    = "test_migrations"
+	testBadMigrationsDir = "test_migrations_corrupted"
+)
+
 //go:embed test_migrations/*.sql
 var testMigrations embed.FS
 
@@ -55,7 +60,7 @@ func TestConnect(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to connect: %s", err)
 		}
-		connector, err := New(connection, testMigrations)
+		connector, err := New(connection, testMigrations, testMigrationsDir)
 		if err != nil {
 			t.Fatalf("failed to init migratigo: %s", err)
 		}
