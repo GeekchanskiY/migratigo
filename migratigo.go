@@ -5,8 +5,13 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"regexp"
 
 	_ "github.com/lib/pq"
+)
+
+const (
+	validMigrationNameRegex = `^\d{3}_[a-zA-Z0-9_]+(?:\.up|\.down)\.sql$`
 )
 
 type Connector struct {
@@ -56,15 +61,29 @@ func ConnectFromConnectionString(connString string) (*sql.DB, error) {
 }
 
 func (c *Connector) RunMigrations() error {
-	files, err := fs.ReadDir(c.migrationsFS, "sql")
+	files, err := fs.ReadDir(c.migrationsFS, "test_migrations")
 	if err != nil {
 		return err
 	}
 
 	for _, file := range files {
 		if !file.IsDir() {
-			fmt.Println(file.Name())
+			err = c.validateMigrationName(file.Name())
+			if err != nil {
+				return err
+			}
 		}
+	}
+
+	return nil
+}
+
+// validateMigrationName checks if file names are in format xxx_name.up/down.sql
+func (c *Connector) validateMigrationName(name string) error {
+	regex := regexp.MustCompile(validMigrationNameRegex)
+
+	if !regex.MatchString(name) {
+		return fmt.Errorf("migration name '%s' is not valid", name)
 	}
 
 	return nil
