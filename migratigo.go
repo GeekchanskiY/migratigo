@@ -5,6 +5,8 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+
+	_ "github.com/lib/pq"
 )
 
 type Connector struct {
@@ -64,6 +66,8 @@ func (c *Connector) RunMigrations() error {
 			fmt.Println(file.Name())
 		}
 	}
+
+	return nil
 }
 
 func (c *Connector) Close() error {
