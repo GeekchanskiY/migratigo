@@ -14,7 +14,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-//go:embed test_migrations/*
+//go:embed test_migrations/*.sql
 var testMigrations embed.FS
 
 func TestConnect(t *testing.T) {
@@ -87,6 +87,60 @@ func TestConnect(t *testing.T) {
 			}
 
 			assert.NotNil(t, connector)
+
+			err = connector.RunMigrations()
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestConnector_validateMigrationName(t *testing.T) {
+	tests := []struct {
+		name          string
+		migrationName string
+		wantErr       bool
+	}{
+		{
+			name:          "valid migration name",
+			migrationName: "001_create_table.up.sql",
+			wantErr:       false,
+		},
+		{
+			name:          "valid migration name",
+			migrationName: "001_create_table.down.sql",
+			wantErr:       false,
+		},
+		{
+			name:          "invalid migration name",
+			migrationName: "001_create_tableup.sql",
+			wantErr:       true,
+		},
+		{
+			name:          "invalid migration name",
+			migrationName: "01_create_table.down.sql",
+			wantErr:       true,
+		},
+		{
+			name:          "invalid migration name",
+			migrationName: "001.down.sql",
+			wantErr:       true,
+		},
+		{
+			name:          "invalid migration name",
+			migrationName: "001_.down.sql",
+			wantErr:       true,
+		},
+		{
+			name:          "invalid migration name",
+			migrationName: "001_create_table.up.html",
+			wantErr:       true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Connector{}
+			err := c.validateMigrationName(tt.migrationName)
+			assert.Equal(t, tt.wantErr, err != nil)
 		})
 	}
 }
