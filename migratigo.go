@@ -35,6 +35,9 @@ type Migration struct {
 	Content  string
 }
 
+//go:embed migratigo.sql
+var schemaMigrations embed.FS
+
 // New creates new migratigo instance
 func New(db *sql.DB, migrations embed.FS, migrationsDir string) (*Connector, error) {
 	return &Connector{
@@ -140,8 +143,89 @@ func (c *Connector) FormatName(filename string) (num int, title string, up bool,
 	return
 }
 
-// Migrate applies migration and creates a db record
-func (c *Connector) Migrate() error {
+func (c *Connector) RunMigrations() error {
+	return c.runMigrations()
+}
+
+// runMigrations iterates through all migrations and runs them
+func (c *Connector) runMigrations() error {
+	if len(c.Migrations) == 0 {
+		return fmt.Errorf("no migrations found")
+	}
+
+	schemaMigrationsContent, err := fs.ReadFile(schemaMigrations, "migratigo.sql")
+	if err != nil {
+		return err
+	}
+
+	_, err = c.connection.Exec(string(schemaMigrationsContent))
+	if err != nil {
+		return err
+	}
+
+	for _, migration := range c.Migrations {
+		err := c.migrate(migration)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// migrate applies migration and creates a db record
+func (c *Connector) migrate(migration Migration) error {
+	exists, err := c.checkIfMigrationExists(migration)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		return nil
+	}
+
+	err = c.applyMigration(migration)
+	if err != nil {
+		return err
+	}
+
+	err = c.confirmMigration(migration)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Connector) checkIfMigrationExists(migration Migration) (bool, error) {
+	q := `SELECT count(*) FROM migrations WHERE num = $1`
+
+	var count int
+
+	err := c.connection.QueryRow(q, migration.Num).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	if count != 0 {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func (c *Connector) applyMigration(migration Migration) error {
+	_, err := c.connection.Exec(migration.Content)
+	return err
+}
+
+func (c *Connector) confirmMigration(migration Migration) error {
+	q := `INSERT INTO migrations(num, title, applied) VALUES ($1, $2, $3);`
+
+	_, err := c.connection.Exec(q, migration.Num, migration.Title, migration.Up)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
