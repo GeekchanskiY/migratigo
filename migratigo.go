@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 
 	_ "github.com/lib/pq"
@@ -90,6 +91,10 @@ func (c *Connector) FillMigrations() error {
 			})
 		}
 	}
+
+	sort.Slice(c.Migrations, func(i, j int) bool {
+		return c.Migrations[i].Num < c.Migrations[j].Num
+	})
 
 	return nil
 }
