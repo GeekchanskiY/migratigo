@@ -69,7 +69,7 @@ func TestConnect(t *testing.T) {
 
 		err = connector.FillMigrations()
 		assert.NoError(t, err)
-		assert.Equal(t, 1, len(connector.Migrations))
+		assert.Equal(t, 2, len(connector.Migrations))
 	})
 
 }
