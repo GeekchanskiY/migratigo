@@ -28,25 +28,8 @@ func New(db *sql.DB, migrations embed.FS) (*Connector, error) {
 	}, nil
 }
 
-// Connect connects to database, and applies migrations
-func Connect(host, port, username, password, name string) (*sql.DB, error) {
-	dbInfo := createConnectionString(host, port, username, password, name)
-
-	connection, err := sql.Open("postgres", dbInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	err = connection.Ping()
-	if err != nil {
-		return nil, err
-	}
-
-	return connection, nil
-}
-
-// ConnectFromConnectionString connects to sql db from connection string
-func ConnectFromConnectionString(connString string) (*sql.DB, error) {
+// Connect connects to sql db from connection string
+func Connect(connString string) (*sql.DB, error) {
 	connection, err := sql.Open("postgres", connString)
 	if err != nil {
 		return nil, err
@@ -101,15 +84,4 @@ func (c *Connector) Connection() (*sql.DB, error) {
 		}
 	}
 	return c.connection, nil
-}
-
-func createConnectionString(host, port, username, password, name string) string {
-	return fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host,
-		port,
-		username,
-		password,
-		name,
-	)
 }

@@ -2,7 +2,6 @@ package migratigo
 
 import (
 	"context"
-	"database/sql"
 	"embed"
 	"log"
 	"testing"
@@ -51,47 +50,22 @@ func TestConnect(t *testing.T) {
 		t.Fatalf("failed to get connection string: %s", connString)
 	}
 
-	type args struct {
-		host     string
-		port     string
-		username string
-		password string
-		name     string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    *sql.DB
-		wantErr bool
-	}{
-		{
-			name: "test 1",
-			args: args{
-				host:     "localhost",
-				port:     "5432",
-				username: "postgres",
-				password: "postgres",
-				name:     "migratigo",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			connection, err := ConnectFromConnectionString(connString)
-			if err != nil {
-				t.Fatalf("failed to connect: %s", err)
-			}
-			connector, err := New(connection, testMigrations)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("failed to init migratigo: %s", err)
-			}
+	t.Run("default migrations", func(t *testing.T) {
+		connection, err := Connect(connString)
+		if err != nil {
+			t.Fatalf("failed to connect: %s", err)
+		}
+		connector, err := New(connection, testMigrations)
+		if err != nil {
+			t.Fatalf("failed to init migratigo: %s", err)
+		}
 
-			assert.NotNil(t, connector)
+		assert.NotNil(t, connector)
 
-			err = connector.RunMigrations()
-			assert.NoError(t, err)
-		})
-	}
+		err = connector.RunMigrations()
+		assert.NoError(t, err)
+	})
+
 }
 
 func TestConnector_validateMigrationName(t *testing.T) {
