@@ -48,8 +48,8 @@ func main(){
 ```
 
 ## Future plans
-CLI tools
-Downgrade migrations
-Auto-create database
-ORM features
-Implement database/sql connection interface for connector, maybe
+ - CLI tools
+ - Downgrade migrations
+ - Auto-create database
+ - ORM features
+ - Implement database/sql connection interface for connector, maybe
