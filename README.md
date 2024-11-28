@@ -17,6 +17,8 @@ Example usage:
 package main
 
 import (
+	"embed"
+	
 	"github.com/GeekchanskiY/migratigo"
 )
 
