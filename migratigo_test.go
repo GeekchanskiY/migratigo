@@ -14,8 +14,7 @@ import (
 )
 
 const (
-	testMigrationsDir    = "test_migrations"
-	testBadMigrationsDir = "test_migrations_corrupted"
+	testMigrationsDir = "test_migrations"
 )
 
 //go:embed test_migrations/*.sql
@@ -67,9 +66,22 @@ func TestConnect(t *testing.T) {
 
 		assert.NotNil(t, connector)
 
-		err = connector.FillMigrations()
+		err = connector.RunMigrations()
 		assert.NoError(t, err)
 		assert.Equal(t, 2, len(connector.Migrations))
+
+		rows, err := connection.Query(`select * from migrations;`)
+		assert.NoError(t, err)
+
+		migrations := make([]Migration, 0, len(connector.Migrations))
+		for rows.Next() {
+			var m Migration
+			err = rows.Scan(&m.Num, &m.Title, &m.Migrated)
+			assert.NoError(t, err)
+
+			migrations = append(migrations, m)
+		}
+		assert.Equal(t, len(connector.Migrations), len(migrations))
 	})
 
 }

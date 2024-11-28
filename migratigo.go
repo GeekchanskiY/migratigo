@@ -38,15 +38,17 @@ type Migration struct {
 //go:embed migratigo.sql
 var schemaMigrations embed.FS
 
-// New creates new migratigo instance
+// New creates new migratigo instance, does initial duty
 func New(db *sql.DB, migrations embed.FS, migrationsDir string) (*Connector, error) {
-	return &Connector{
+	connector := Connector{
 		migrated:         false,
 		connection:       db,
 		migrationsFS:     migrations,
 		migrationsDir:    migrationsDir,
 		migrationsFilled: false,
-	}, nil
+	}
+
+	return &connector, nil
 }
 
 // Connect connects to sql db from connection string
@@ -65,7 +67,7 @@ func Connect(connString string) (*sql.DB, error) {
 }
 
 // FillMigrations creates all migrations from embedded sql files
-func (c *Connector) FillMigrations() error {
+func (c *Connector) fillMigrations() error {
 	files, err := fs.ReadDir(c.migrationsFS, c.migrationsDir)
 	if err != nil {
 		return err
@@ -83,7 +85,7 @@ func (c *Connector) FillMigrations() error {
 				return err
 			}
 
-			num, title, up, err := c.FormatName(file.Name())
+			num, title, up, err := c.formatName(file.Name())
 
 			c.Migrations = append(c.Migrations, Migration{
 				Num:      num,
@@ -113,7 +115,7 @@ func (c *Connector) validateMigrationName(name string) error {
 	return nil
 }
 
-func (c *Connector) FormatName(filename string) (num int, title string, up bool, err error) {
+func (c *Connector) formatName(filename string) (num int, title string, up bool, err error) {
 	regex := regexp.MustCompile(getMigrationDetailRegex)
 	matches := regex.FindStringSubmatch(filename)
 
@@ -144,6 +146,11 @@ func (c *Connector) FormatName(filename string) (num int, title string, up bool,
 }
 
 func (c *Connector) RunMigrations() error {
+	err := c.fillMigrations()
+	if err != nil {
+		return err
+	}
+
 	return c.runMigrations()
 }
 
@@ -163,11 +170,12 @@ func (c *Connector) runMigrations() error {
 		return err
 	}
 
-	for _, migration := range c.Migrations {
+	for i, migration := range c.Migrations {
 		err := c.migrate(migration)
 		if err != nil {
 			return err
 		}
+		c.Migrations[i].Migrated = true
 	}
 
 	return nil
@@ -198,20 +206,16 @@ func (c *Connector) migrate(migration Migration) error {
 }
 
 func (c *Connector) checkIfMigrationExists(migration Migration) (bool, error) {
-	q := `SELECT count(*) FROM migrations WHERE num = $1`
+	q := `SELECT exists(SELECT * FROM migrations WHERE num = $1) `
 
-	var count int
+	var count bool
 
 	err := c.connection.QueryRow(q, migration.Num).Scan(&count)
 	if err != nil {
 		return false, err
 	}
 
-	if count != 0 {
-		return false, nil
-	}
-
-	return true, nil
+	return count, nil
 }
 
 func (c *Connector) applyMigration(migration Migration) error {
@@ -232,14 +236,4 @@ func (c *Connector) confirmMigration(migration Migration) error {
 // Close closes sql connection
 func (c *Connector) Close() error {
 	return c.connection.Close()
-}
-
-func (c *Connector) Connection() (*sql.DB, error) {
-	if !c.migrated {
-		err := c.FillMigrations()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return c.connection, nil
 }
