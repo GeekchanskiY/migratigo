@@ -59,7 +59,7 @@ func TestConnect(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to connect: %s", err)
 		}
-		connector, err := New(connection, testMigrations, testMigrationsDir)
+		connector, err := New(connection, testMigrations, testMigrationsDir, nil)
 		if err != nil {
 			t.Fatalf("failed to init migratigo: %s", err)
 		}
@@ -68,7 +68,7 @@ func TestConnect(t *testing.T) {
 
 		err = connector.RunMigrations()
 		assert.NoError(t, err)
-		assert.Equal(t, 2, len(connector.Migrations))
+		assert.Equal(t, 4, len(connector.Migrations))
 
 		rows, err := connection.Query(`select * from migrations;`)
 		assert.NoError(t, err)
@@ -81,7 +81,7 @@ func TestConnect(t *testing.T) {
 
 			migrations = append(migrations, m)
 		}
-		assert.Equal(t, len(connector.Migrations), len(migrations))
+		assert.Equal(t, len(connector.Migrations)/2, len(migrations))
 	})
 
 }

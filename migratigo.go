@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	_ "github.com/lib/pq"
+	"go.uber.org/zap"
 )
 
 const (
@@ -19,6 +20,7 @@ const (
 )
 
 type Connector struct {
+	log              *zap.Logger
 	migrated         bool
 	connection       *sql.DB
 	migrationsFS     embed.FS
@@ -39,13 +41,18 @@ type Migration struct {
 var schemaMigrations embed.FS
 
 // New creates new migratigo instance, does initial duty
-func New(db *sql.DB, migrations embed.FS, migrationsDir string) (*Connector, error) {
+func New(db *sql.DB, migrations embed.FS, migrationsDir string, logger *zap.Logger) (*Connector, error) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
 	connector := Connector{
 		migrated:         false,
 		connection:       db,
 		migrationsFS:     migrations,
 		migrationsDir:    migrationsDir,
 		migrationsFilled: false,
+		log:              logger,
 	}
 
 	return &connector, nil
@@ -66,7 +73,7 @@ func Connect(connString string) (*sql.DB, error) {
 	return connection, nil
 }
 
-// FillMigrations creates all migrations from embedded sql files
+// FillMigrations creates all migrations from embedded sql files, and validates them
 func (c *Connector) fillMigrations() error {
 	files, err := fs.ReadDir(c.migrationsFS, c.migrationsDir)
 	if err != nil {
@@ -98,8 +105,46 @@ func (c *Connector) fillMigrations() error {
 	}
 
 	sort.Slice(c.Migrations, func(i, j int) bool {
+		if c.Migrations[i].Num == c.Migrations[j].Num {
+			return c.Migrations[i].Up == true
+		}
 		return c.Migrations[i].Num < c.Migrations[j].Num
 	})
+
+	c.log.Debug("migrations filled successfully", zap.Int("migrations", len(c.Migrations)))
+	c.log.Debug("validating migrations")
+
+	found := false
+	for origNum, migrationOrig := range c.Migrations {
+
+		for foundNum, migrationFound := range c.Migrations {
+
+			if migrationFound.Num == migrationOrig.Num && origNum != foundNum {
+
+				if migrationFound.Up == migrationOrig.Up {
+					upStr := "down"
+
+					if migrationFound.Up {
+						upStr = "up"
+					}
+
+					return fmt.Errorf("migration %d has 2 %s files", migrationOrig.Num, upStr)
+				}
+
+				if found {
+					return fmt.Errorf("found 2 same migrations: %d", migrationOrig.Num)
+				}
+
+				found = true
+			}
+		}
+
+		if !found {
+			return fmt.Errorf("migration %d not found in any opposite migrations", migrationOrig.Num)
+		}
+
+		found = false
+	}
 
 	return nil
 }

@@ -48,7 +48,6 @@ func main(){
 ```
 
 ## Future plans
- - CLI tools
  - Downgrade migrations
  - Auto-create database
  - ORM features
