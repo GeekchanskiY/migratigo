@@ -48,7 +48,7 @@ func main(){
 ```
 
 ## Future plans
- - Downgrade migrations
+ - CLI
  - Auto-create database
  - ORM features
  - Implement database/sql connection interface for connector, maybe
