@@ -48,6 +48,7 @@ func main(){
 ```
 
 ## Future plans
+ - Add sqlx support
  - Downgrade migrations
  - Auto-create database
  - ORM features
