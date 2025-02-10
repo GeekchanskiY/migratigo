@@ -39,7 +39,7 @@ func main(){
 	if err != nil {
 		// ...
     }
-	err = connector.RunMigrations() 
+	err = connector.RunMigrations(false) 
 	if err != nil {
 		// ...
     }
