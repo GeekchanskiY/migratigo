@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"go.uber.org/zap"
 )
@@ -49,6 +50,23 @@ func New(db *sql.DB, migrations embed.FS, migrationsDir string, logger *zap.Logg
 	connector := Connector{
 		migrated:         false,
 		connection:       db,
+		migrationsFS:     migrations,
+		migrationsDir:    migrationsDir,
+		migrationsFilled: false,
+		log:              logger,
+	}
+
+	return &connector, nil
+}
+
+func NewFromSqlx(db sqlx.DB, migrations embed.FS, migrationsDir string, logger *zap.Logger) (*Connector, error) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+	connector := Connector{
+		migrated:         false,
+		connection:       db.DB,
 		migrationsFS:     migrations,
 		migrationsDir:    migrationsDir,
 		migrationsFilled: false,
