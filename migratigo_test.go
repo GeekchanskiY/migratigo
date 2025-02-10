@@ -66,7 +66,7 @@ func TestConnect(t *testing.T) {
 
 		assert.NotNil(t, connector)
 
-		err = connector.RunMigrations()
+		err = connector.RunMigrations(false)
 		assert.NoError(t, err)
 		assert.Equal(t, 4, len(connector.Migrations))
 

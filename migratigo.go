@@ -74,7 +74,7 @@ func Connect(connString string) (*sql.DB, error) {
 }
 
 // FillMigrations creates all migrations from embedded sql files, and validates them
-func (c *Connector) fillMigrations() error {
+func (c *Connector) fillMigrations(noOpposite bool) error {
 	files, err := fs.ReadDir(c.migrationsFS, c.migrationsDir)
 	if err != nil {
 		return err
@@ -139,7 +139,7 @@ func (c *Connector) fillMigrations() error {
 			}
 		}
 
-		if !found {
+		if !found && !noOpposite {
 			return fmt.Errorf("migration %d not found in any opposite migrations", migrationOrig.Num)
 		}
 
@@ -190,8 +190,9 @@ func (c *Connector) formatName(filename string) (num int, title string, up bool,
 	return
 }
 
-func (c *Connector) RunMigrations() error {
-	err := c.fillMigrations()
+// RunMigrations fills and runs migrations. if noOpposite flag provided, you can not create .down migrations.
+func (c *Connector) RunMigrations(noOpposite bool) error {
+	err := c.fillMigrations(noOpposite)
 	if err != nil {
 		return err
 	}
