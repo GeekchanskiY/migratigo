@@ -1,18 +1,16 @@
 # migratigo
 
-Migratigo is a yet another lightweight migration tool.
+Migratigo is yet another lightweight migration tool.
 
 ## Usage
 
-To install:
+Installation:
 
 ```shell
 go get github.com/GeekchanskiY/migratigo
-go mod tidy
 ```
 
 Example usage:
-
 ```go
 package main
 
