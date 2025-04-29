@@ -1,4 +1,4 @@
-package migratigo
+package pkg
 
 import (
 	"database/sql"
