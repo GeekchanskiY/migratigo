@@ -10,6 +10,12 @@ Installation:
 go get github.com/GeekchanskiY/migratigo
 ```
 
+
+To install additional cli utilities
+```shell
+go install github.com/GeekchanskiY/migratigo
+```
+
 Example usage:
 ```go
 package main
