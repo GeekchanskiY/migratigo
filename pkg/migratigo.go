@@ -12,7 +12,6 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
-	"go.uber.org/zap"
 )
 
 const (
@@ -21,16 +20,15 @@ const (
 )
 
 type Connector struct {
-	log              *zap.Logger
 	migrated         bool
 	connection       *sql.DB
 	migrationsFS     embed.FS
 	migrationsDir    string
 	migrationsFilled bool
-	Migrations       []Migration
+	Migrations       []migration
 }
 
-type Migration struct {
+type migration struct {
 	Num      int
 	Title    string
 	Up       bool
@@ -42,35 +40,25 @@ type Migration struct {
 var schemaMigrations embed.FS
 
 // New creates new migratigo instance, does initial duty
-func New(db *sql.DB, migrations embed.FS, migrationsDir string, logger *zap.Logger) (*Connector, error) {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
-
+func New(db *sql.DB, migrations embed.FS, migrationsDir string) (*Connector, error) {
 	connector := Connector{
 		migrated:         false,
 		connection:       db,
 		migrationsFS:     migrations,
 		migrationsDir:    migrationsDir,
 		migrationsFilled: false,
-		log:              logger,
 	}
 
 	return &connector, nil
 }
 
-func NewFromSqlx(db sqlx.DB, migrations embed.FS, migrationsDir string, logger *zap.Logger) (*Connector, error) {
-	if logger == nil {
-		logger = zap.NewNop()
-	}
-
+func NewFromSqlx(db sqlx.DB, migrations embed.FS, migrationsDir string) (*Connector, error) {
 	connector := Connector{
 		migrated:         false,
 		connection:       db.DB,
 		migrationsFS:     migrations,
 		migrationsDir:    migrationsDir,
 		migrationsFilled: false,
-		log:              logger,
 	}
 
 	return &connector, nil
@@ -112,7 +100,7 @@ func (c *Connector) fillMigrations(noOpposite bool) error {
 
 			num, title, up, err := c.formatName(file.Name())
 
-			c.Migrations = append(c.Migrations, Migration{
+			c.Migrations = append(c.Migrations, migration{
 				Num:      num,
 				Title:    title,
 				Up:       up,
@@ -128,9 +116,6 @@ func (c *Connector) fillMigrations(noOpposite bool) error {
 		}
 		return c.Migrations[i].Num < c.Migrations[j].Num
 	})
-
-	c.log.Debug("migrations filled successfully", zap.Int("migrations", len(c.Migrations)))
-	c.log.Debug("validating migrations")
 
 	found := false
 	for origNum, migrationOrig := range c.Migrations {
@@ -246,7 +231,7 @@ func (c *Connector) runMigrations() error {
 }
 
 // migrate applies migration and creates a db record
-func (c *Connector) migrate(migration Migration) error {
+func (c *Connector) migrate(migration migration) error {
 	exists, err := c.checkIfMigrationExists(migration)
 	if err != nil {
 		return err
@@ -269,12 +254,12 @@ func (c *Connector) migrate(migration Migration) error {
 	return nil
 }
 
-func (c *Connector) checkIfMigrationExists(migration Migration) (bool, error) {
+func (c *Connector) checkIfMigrationExists(m migration) (bool, error) {
 	q := `SELECT exists(SELECT * FROM migrations WHERE num = $1) `
 
 	var count bool
 
-	err := c.connection.QueryRow(q, migration.Num).Scan(&count)
+	err := c.connection.QueryRow(q, m.Num).Scan(&count)
 	if err != nil {
 		return false, err
 	}
@@ -282,22 +267,23 @@ func (c *Connector) checkIfMigrationExists(migration Migration) (bool, error) {
 	return count, nil
 }
 
-func (c *Connector) applyMigration(migration Migration) error {
-	_, err := c.connection.Exec(migration.Content)
+func (c *Connector) applyMigration(m migration) error {
+	_, err := c.connection.Exec(m.Content)
 	return err
 }
 
-func (c *Connector) confirmMigration(migration Migration) error {
+func (c *Connector) confirmMigration(m migration) error {
 	q := `INSERT INTO migrations(num, title, applied) VALUES ($1, $2, $3);`
 
-	_, err := c.connection.Exec(q, migration.Num, migration.Title, migration.Up)
+	_, err := c.connection.Exec(q, m.Num, m.Title, m.Up)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
-// Close closes sql connection
+// Close closes connection
 func (c *Connector) Close() error {
 	return c.connection.Close()
 }

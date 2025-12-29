@@ -13,42 +13,7 @@ go get github.com/GeekchanskiY/migratigo
 
 To install additional cli utilities
 ```shell
-go install github.com/GeekchanskiY/migratigo
-```
-
-Example usage:
-```go
-package main
-
-import (
-	"embed"
-	
-	"github.com/GeekchanskiY/migratigo"
-)
-
-const (
-	migrationsDir = "migrations" // name of the directory where embed migrations located
-	connString = "..."
-)
-
-//go:embed migrations/*.sql
-var migrations embed.FS
-
-func main(){
-	connection, err := migratigo.Connect(connString)
-	if err != nil {
-		// ...
-    }
-	connector, err := migratigo.New(connection, migrations, migrationsDir)
-	if err != nil {
-		// ...
-    }
-	err = connector.RunMigrations(false) 
-	if err != nil {
-		// ...
-    }
-	// migrations are saved and applied, use your database :)
-}
+go install github.com/GeekchanskiY/migratigo/cmd/migratigo
 ```
 
 ## Future plans
