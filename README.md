@@ -1,6 +1,6 @@
 # migratigo
 
-Migratigo is yet another lightweight migration tool.
+Migratigo is yet another lightweight Migration tool.
 
 ## Usage
 

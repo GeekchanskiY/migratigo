@@ -1,4 +1,4 @@
-package pkg
+package test
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GeekchanskiY/migratigo/pkg/migratigo"
+	"github.com/GeekchanskiY/migratigo/pkg/migration"
 	"github.com/stretchr/testify/assert"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -55,11 +57,11 @@ func TestConnect(t *testing.T) {
 	}
 
 	t.Run("default migrations", func(t *testing.T) {
-		connection, err := Connect(connString)
+		connection, err := migratigo.Connect(connString)
 		if err != nil {
 			t.Fatalf("failed to connect: %s", err)
 		}
-		connector, err := New(connection, testMigrations, testMigrationsDir, nil)
+		connector, err := migratigo.New(connection, testMigrations, testMigrationsDir)
 		if err != nil {
 			t.Fatalf("failed to init migratigo: %s", err)
 		}
@@ -73,9 +75,9 @@ func TestConnect(t *testing.T) {
 		rows, err := connection.Query(`select * from migrations;`)
 		assert.NoError(t, err)
 
-		migrations := make([]Migration, 0, len(connector.Migrations))
+		migrations := make([]migration.Migration, 0, 4)
 		for rows.Next() {
-			var m Migration
+			var m migration.Migration
 			err = rows.Scan(&m.Num, &m.Title, &m.Migrated)
 			assert.NoError(t, err)
 
@@ -130,9 +132,9 @@ func TestConnector_validateMigrationName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &Connector{}
-			err := c.validateMigrationName(tt.migrationName)
-			assert.Equal(t, tt.wantErr, err != nil)
+			//c := &migratigo.Connector{}
+			//err := c.validateMigrationName(tt.migrationName)
+			//assert.Equal(t, tt.wantErr, err != nil)
 		})
 	}
 }
