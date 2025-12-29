@@ -2,8 +2,9 @@ package test
 
 import (
 	"context"
-	"embed"
+	"database/sql"
 	"log"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -18,9 +19,6 @@ import (
 const (
 	testMigrationsDir = "test_migrations"
 )
-
-//go:embed test_migrations/*.sql
-var testMigrations embed.FS
 
 func TestConnect(t *testing.T) {
 	ctx := context.Background()
@@ -56,12 +54,14 @@ func TestConnect(t *testing.T) {
 		t.Fatalf("failed to get connection string: %s", connString)
 	}
 
+	connection, err := sql.Open("postgres", connString)
+	if err != nil {
+		t.Fatalf("failed to open connection: %s", err)
+	}
+	defer connection.Close()
+
 	t.Run("default migrations", func(t *testing.T) {
-		connection, err := migratigo.Connect(connString)
-		if err != nil {
-			t.Fatalf("failed to connect: %s", err)
-		}
-		connector, err := migratigo.New(connection, testMigrations, testMigrationsDir)
+		connector, err := migratigo.New(connection, testMigrationsDir)
 		if err != nil {
 			t.Fatalf("failed to init migratigo: %s", err)
 		}
@@ -132,9 +132,8 @@ func TestConnector_validateMigrationName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			//c := &migratigo.Connector{}
-			//err := c.validateMigrationName(tt.migrationName)
-			//assert.Equal(t, tt.wantErr, err != nil)
+			_, err := migration.FromFile(filepath.Join(testMigrationsDir, tt.migrationName))
+			assert.Equal(t, tt.wantErr, err != nil)
 		})
 	}
 }

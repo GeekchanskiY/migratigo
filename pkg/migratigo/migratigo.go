@@ -5,76 +5,48 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
-	"strconv"
 
 	"github.com/GeekchanskiY/migratigo/pkg/migration"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 
-const (
-	validMigrationNameRegex = `^\d{3}_[a-zA-Z0-9_]+(?:\.up|\.down)\.sql$`
-	getMigrationDetailRegex = `^(\d{3})_([a-zA-Z0-9_]+)\.(up|down)\.sql$`
-)
-
 type Connector struct {
 	migrated         bool
 	connection       *sql.DB
-	migrationsFS     embed.FS
 	migrationsDir    string
 	migrationsFilled bool
-	Migrations       []migration.Migration
+	Migrations       []*migration.Migration
 }
 
 //go:embed migratigo.sql
 var schemaMigrations embed.FS
 
 // New creates new migratigo instance, does initial duty
-func New(db *sql.DB, migrations embed.FS, migrationsDir string) (*Connector, error) {
-	connector := Connector{
+func New(db *sql.DB, migrationsDir string) (*Connector, error) {
+	return &Connector{
 		migrated:         false,
 		connection:       db,
-		migrationsFS:     migrations,
 		migrationsDir:    migrationsDir,
 		migrationsFilled: false,
-	}
-
-	return &connector, nil
+	}, nil
 }
 
-func NewFromSqlx(db sqlx.DB, migrations embed.FS, migrationsDir string) (*Connector, error) {
-	connector := Connector{
+func NewFromSqlx(db sqlx.DB, migrationsDir string) (*Connector, error) {
+	return &Connector{
 		migrated:         false,
 		connection:       db.DB,
-		migrationsFS:     migrations,
 		migrationsDir:    migrationsDir,
 		migrationsFilled: false,
-	}
-
-	return &connector, nil
-}
-
-// Connect connects to sql db from connection string
-func Connect(connString string) (*sql.DB, error) {
-	connection, err := sql.Open("postgres", connString)
-	if err != nil {
-		return nil, err
-	}
-
-	err = connection.Ping()
-	if err != nil {
-		return nil, err
-	}
-
-	return connection, nil
+	}, nil
 }
 
 // FillMigrations creates all migrations from embedded sql files, and validates them
 func (c *Connector) fillMigrations(noOpposite bool) error {
-	files, err := fs.ReadDir(c.migrationsFS, c.migrationsDir)
+	files, err := os.ReadDir(c.migrationsDir)
 	if err != nil {
 		return err
 	}
@@ -82,24 +54,12 @@ func (c *Connector) fillMigrations(noOpposite bool) error {
 	// name validation and filling migrations
 	for _, file := range files {
 		if !file.IsDir() {
-			err = c.validateMigrationName(file.Name())
-			if err != nil {
-				return err
-			}
-			contents, err := fs.ReadFile(c.migrationsFS, filepath.Join(c.migrationsDir, file.Name()))
+			newMigration, err := migration.FromFile(filepath.Join(c.migrationsDir, file.Name()))
 			if err != nil {
 				return err
 			}
 
-			num, title, up, err := c.formatName(file.Name())
-
-			c.Migrations = append(c.Migrations, migration.Migration{
-				Num:      num,
-				Title:    title,
-				Up:       up,
-				Migrated: false,
-				Content:  string(contents),
-			})
+			c.Migrations = append(c.Migrations, newMigration)
 		}
 	}
 
@@ -124,7 +84,7 @@ func (c *Connector) fillMigrations(noOpposite bool) error {
 						upStr = "up"
 					}
 
-					return fmt.Errorf("Migration %d has 2 %s files", migrationOrig.Num, upStr)
+					return fmt.Errorf("migration %d has 2 %s files", migrationOrig.Num, upStr)
 				}
 
 				if found {
@@ -136,54 +96,13 @@ func (c *Connector) fillMigrations(noOpposite bool) error {
 		}
 
 		if !found && !noOpposite {
-			return fmt.Errorf("Migration %d not found in any opposite migrations", migrationOrig.Num)
+			return fmt.Errorf("migration %d not found in any opposite migrations", migrationOrig.Num)
 		}
 
 		found = false
 	}
 
 	return nil
-}
-
-// validateMigrationName checks if file names are in format xxx_name.up/down.sql
-func (c *Connector) validateMigrationName(name string) error {
-	regex := regexp.MustCompile(validMigrationNameRegex)
-
-	if !regex.MatchString(name) {
-		return fmt.Errorf("Migration name '%s' is not valid", name)
-	}
-
-	return nil
-}
-
-func (c *Connector) formatName(filename string) (num int, title string, up bool, err error) {
-	regex := regexp.MustCompile(getMigrationDetailRegex)
-	matches := regex.FindStringSubmatch(filename)
-
-	// additional check, if validateMigrationName fails
-	if len(matches) != 4 {
-		return 0, "", false, fmt.Errorf("Migration name '%s' is not valid", filename)
-	}
-
-	// get all args from Migration name
-	num, err = strconv.Atoi(matches[1])
-	if err != nil {
-		return 0, "", false, err
-	}
-
-	if num <= 0 || num > 999 {
-		return 0, "", false, fmt.Errorf("Migration num '%d' is not valid", num)
-	}
-
-	title = matches[2]
-
-	if matches[3] == "up" {
-		up = true
-	} else {
-		up = false
-	}
-
-	return
 }
 
 // RunMigrations fills and runs migrations. if noOpposite flag provided, you can not create .down migrations.
@@ -212,8 +131,8 @@ func (c *Connector) runMigrations() error {
 		return err
 	}
 
-	for i, migration := range c.Migrations {
-		err := c.migrate(migration)
+	for i, m := range c.Migrations {
+		err := c.migrate(m)
 		if err != nil {
 			return err
 		}
@@ -224,7 +143,7 @@ func (c *Connector) runMigrations() error {
 }
 
 // migrate applies Migration and creates a db record
-func (c *Connector) migrate(migration migration.Migration) error {
+func (c *Connector) migrate(migration *migration.Migration) error {
 	exists, err := c.checkIfMigrationExists(migration)
 	if err != nil {
 		return err
@@ -247,7 +166,7 @@ func (c *Connector) migrate(migration migration.Migration) error {
 	return nil
 }
 
-func (c *Connector) checkIfMigrationExists(m migration.Migration) (bool, error) {
+func (c *Connector) checkIfMigrationExists(m *migration.Migration) (bool, error) {
 	q := `SELECT exists(SELECT * FROM migrations WHERE num = $1) `
 
 	var count bool
@@ -260,12 +179,12 @@ func (c *Connector) checkIfMigrationExists(m migration.Migration) (bool, error) 
 	return count, nil
 }
 
-func (c *Connector) applyMigration(m migration.Migration) error {
+func (c *Connector) applyMigration(m *migration.Migration) error {
 	_, err := c.connection.Exec(m.Content)
 	return err
 }
 
-func (c *Connector) confirmMigration(m migration.Migration) error {
+func (c *Connector) confirmMigration(m *migration.Migration) error {
 	q := `INSERT INTO migrations(num, title, applied) VALUES ($1, $2, $3);`
 
 	_, err := c.connection.Exec(q, m.Num, m.Title, m.Up)
@@ -274,9 +193,4 @@ func (c *Connector) confirmMigration(m migration.Migration) error {
 	}
 
 	return nil
-}
-
-// Close closes connection
-func (c *Connector) Close() error {
-	return c.connection.Close()
 }
