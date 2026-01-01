@@ -12,42 +12,50 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package migration
+package config
 
 import (
+	_ "embed"
+	"fmt"
 	"os"
-	"path/filepath"
+	"path"
 )
 
-type Migration struct {
-	Num      int
-	Title    string
-	Up       bool
-	Migrated bool
-	Content  string
-}
+//go:embed templates/config_template.yml
+var configTemplate string
 
-func FromFile(filePath string) (*Migration, error) {
-	err := validateMigrationName(filepath.Base(filePath))
+func Initialize() error {
+	cwd, err := os.Getwd()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	num, title, up, err := formatName(filepath.Base(filePath))
-	if err != nil {
-		return nil, err
+	_, err = os.Stat(path.Join(cwd, "migratigo"))
+	if err == nil {
+		return ErrAlreadyInitialized
 	}
 
-	content, err := os.ReadFile(filePath)
+	err = os.Mkdir("migratigo", 0755)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &Migration{
-		Num:      num,
-		Title:    title,
-		Up:       up,
-		Migrated: false,
-		Content:  string(content),
-	}, nil
+	f, err := os.Create(path.Join(cwd, "migratigo", "config.yaml"))
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err = f.Close()
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "error closing file (migratigo/config.yaml):", err)
+		}
+	}()
+
+	_, err = f.WriteString(configTemplate)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

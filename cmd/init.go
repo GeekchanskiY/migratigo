@@ -15,8 +15,7 @@
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/GeekchanskiY/migratigo/pkg/config"
 	"github.com/spf13/cobra"
 )
 
@@ -25,8 +24,8 @@ var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize migratigo",
 	Long:  `Creates migratigo supporting files`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("init called")
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return config.Initialize()
 	},
 }
 

@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package migration
+package config
 
 import "errors"
 
 var (
-	ErrInvalidMigrationName   = errors.New("invalid migration name")
-	ErrInvalidMigrationNumber = errors.New("invalid migration number")
+	ErrAlreadyInitialized = errors.New("already initialized")
 )
