@@ -1,0 +1,3 @@
+# Migratigo configuration file
+migratigo:
+  db_url: "enter your database url here"
