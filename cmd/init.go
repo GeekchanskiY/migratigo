@@ -21,9 +21,10 @@ import (
 
 // initCmd represents the init command
 var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Initialize migratigo",
-	Long:  `Creates migratigo supporting files`,
+	Use:     "init",
+	Short:   "Initialize migratigo",
+	Long:    `Creates migratigo supporting files`,
+	Version: "0.0.1",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return config.Initialize()
 	},

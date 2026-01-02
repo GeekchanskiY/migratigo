@@ -15,8 +15,7 @@
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/GeekchanskiY/migratigo/pkg/config"
 	"github.com/spf13/cobra"
 )
 
@@ -29,38 +28,22 @@ var migrateCmd = &cobra.Command{
 	GroupID:    "",
 	Long: `Applies migrations to database, uses database connection string environment variable. 
 Make sure you called init before applying migrations.`,
-	Example:                "",
+	Example:                "migratigo migrate",
 	ValidArgs:              nil,
 	ValidArgsFunction:      nil,
 	Args:                   nil,
 	ArgAliases:             nil,
 	BashCompletionFunction: "",
-	Deprecated:             "",
 	Annotations:            nil,
-	Version:                "",
-	PersistentPreRun:       nil,
-	PersistentPreRunE:      nil,
-	PreRun:                 nil,
-	PreRunE:                nil,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("migrate called")
+	Version:                "0.0.1",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		_, err := config.New()
+		if err != nil {
+			return err
+		}
+
+		return nil
 	},
-	RunE:                       nil,
-	PostRun:                    nil,
-	PostRunE:                   nil,
-	PersistentPostRun:          nil,
-	PersistentPostRunE:         nil,
-	FParseErrWhitelist:         cobra.FParseErrWhitelist{},
-	CompletionOptions:          cobra.CompletionOptions{},
-	TraverseChildren:           false,
-	Hidden:                     false,
-	SilenceErrors:              false,
-	SilenceUsage:               false,
-	DisableFlagParsing:         false,
-	DisableAutoGenTag:          false,
-	DisableFlagsInUseLine:      false,
-	DisableSuggestions:         false,
-	SuggestionsMinimumDistance: 0,
 }
 
 func init() {

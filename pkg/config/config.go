@@ -1,17 +1,23 @@
 package config
 
-import "github.com/spf13/viper"
+import (
+	"github.com/spf13/viper"
+)
 
 type Config struct {
-	DbURL string `yaml:"db_url"`
+	DbURL string `mapstructure:"db_url"`
 }
 
 func New() (*Config, error) {
+	viper.AddConfigPath("./migratigo")
 	viper.SetConfigName("config")
 	err := viper.ReadInConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	cfg := new(Config)
+	err = viper.UnmarshalKey("migratigo", cfg)
+
+	return cfg, err
 }
