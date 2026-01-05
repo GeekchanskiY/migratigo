@@ -15,16 +15,21 @@
 package config
 
 import (
+	"database/sql"
 	_ "embed"
 	"fmt"
 	"os"
 	"path"
+	"strings"
+
+	"github.com/GeekchanskiY/migratigo/pkg/migratigo"
+	_ "github.com/lib/pq"
 )
 
 //go:embed templates/config_template.yml
 var configTemplate string
 
-func Initialize() error {
+func Initialize(dbUrl, migrationsPath string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -33,6 +38,34 @@ func Initialize() error {
 	_, err = os.Stat(path.Join(cwd, "migratigo"))
 	if err == nil {
 		return ErrAlreadyInitialized
+	}
+
+	// Check that connection string is valid
+	db, err := sql.Open("postgres", dbUrl)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = db.Close()
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "error closing db connection:", err)
+		}
+	}()
+
+	err = db.Ping()
+	if err != nil {
+		return err
+	}
+
+	err = migratigo.InitTable(db)
+	if err != nil {
+		return err
+	}
+
+	// check that migrations dir is valid
+	_, err = os.ReadDir(migrationsPath)
+	if err != nil {
+		return err
 	}
 
 	err = os.Mkdir("migratigo", 0755)
@@ -52,7 +85,10 @@ func Initialize() error {
 		}
 	}()
 
-	_, err = f.WriteString(configTemplate)
+	filledTemplate := strings.Replace(configTemplate, "{{.DBURL}}", dbUrl, -1)
+	filledTemplate = strings.Replace(filledTemplate, "{{.MigrationsPath}}", migrationsPath, -1)
+
+	_, err = f.WriteString(filledTemplate)
 	if err != nil {
 		return err
 	}

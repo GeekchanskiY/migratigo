@@ -16,9 +16,8 @@ package migratigo
 
 import (
 	"database/sql"
-	"embed"
+	_ "embed"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -37,7 +36,7 @@ type Connector struct {
 }
 
 //go:embed migratigo.sql
-var schemaMigrations embed.FS
+var schemaMigrations string
 
 // New creates new migratigo instance, does initial duty
 func New(db *sql.DB, migrationsDir string) (*Connector, error) {
@@ -56,6 +55,15 @@ func NewFromSqlx(db sqlx.DB, migrationsDir string) (*Connector, error) {
 		migrationsDir:    migrationsDir,
 		migrationsFilled: false,
 	}, nil
+}
+
+func InitTable(conn *sql.DB) error {
+	_, err := conn.Exec(schemaMigrations)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // FillMigrations creates all migrations from embedded sql files, and validates them
@@ -133,16 +141,6 @@ func (c *Connector) RunMigrations(noOpposite bool) error {
 func (c *Connector) runMigrations() error {
 	if len(c.Migrations) == 0 {
 		return fmt.Errorf("no migrations found")
-	}
-
-	schemaMigrationsContent, err := fs.ReadFile(schemaMigrations, "migratigo.sql")
-	if err != nil {
-		return err
-	}
-
-	_, err = c.connection.Exec(string(schemaMigrationsContent))
-	if err != nil {
-		return err
 	}
 
 	for i, m := range c.Migrations {

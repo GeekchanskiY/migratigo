@@ -1,3 +1,4 @@
 # Migratigo configuration file
 migratigo:
-  db_url: "enter your database url here"
+  db_url: "{{.DBURL}}"
+  migrations_path: "{{.MigrationsPath}}"
